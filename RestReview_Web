@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Restaurant Map</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    #map { height: 100vh; }
+
+    #controls {
+      position: absolute;
+      top: 8px;
+      left: 55px;
+      z-index: 1000;
+      background: rgb(255, 140, 165);
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    #controls input, #controls select {
+      display: block;
+      margin-bottom: 6px;
+      width: 180px;
+      padding: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="controls">
+  <input id="searchBox" placeholder="Search restaurants...">
+  <select id="ratingFilter">
+      <option value="0">All ratings</option>
+      <option value="1">1+</option>
+      <option value="2">2+</option>
+      <option value="3">3+</option>
+      <option value="4">4+</option>
+      <option value="5">5+</option>
+      <option value="5.5">5+</option>
+      <option value="6">6+</option>
+      <option value="6.5">5+</option>
+      <option value="7">7+</option>
+      <option value="7.5">5+</option>
+      <option value="8">8+</option>
+      <option value="8.5">5+</option>
+      <option value="9">9+</option>
+      <option value="9.5">5+</option>
+      <option value="10">10</option>
+  </select>
+</div>
+
+<div id="map"></div>
+
+<script>
+const SUPABASE_URL = "https://ubbvlvlltaslzprjseac.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViYnZsdmxsdGFzbHpwcmpzZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MzYxNzYsImV4cCI6MjA5MzQxMjE3Nn0.LSNDTiJM4GjNTlbuRt8enwE1Swi2bCL_m-7C1XwKWi4";
+
+const map = L.map('map').setView([39.5, -98.35], 4);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+const markers = [];
+
+// LOAD DATA
+async function loadData() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/location_web?select=*`, {
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`
+    }
+  });
+
+  const data = await res.json();
+
+  console.log("DATA:", data);
+
+  data.forEach(row => {
+    const lat = parseFloat(row.lat);
+    const lng = parseFloat(row.long);
+
+    if (!isNaN(lat) && !isNaN(lng)) {
+
+      const marker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup(`
+          <b>${row.restname}</b><br>
+          ⭐ ${row.mean_rating ?? "N/A"}<br><br>
+
+          <div style="max-height:120px; overflow:auto; white-space:pre-line;">
+            ${row.combined_review ?? ""}
+          </div>
+        `);
+
+      markers.push({ marker, data: row });
+    }
+  });
+}
+
+loadData();
+
+// SEARCH
+document.getElementById("searchBox").addEventListener("input", (e) => {
+  const q = e.target.value.toLowerCase();
+
+  markers.forEach(({ marker, data }) => {
+    const match = data.restname?.toLowerCase().includes(q);
+
+    if (match) marker.addTo(map);
+    else map.removeLayer(marker);
+  });
+});
+
+// FILTER
+document.getElementById("ratingFilter").addEventListener("change", (e) => {
+  const min = parseFloat(e.target.value);
+
+  markers.forEach(({ marker, data }) => {
+    const rating = parseFloat(data.mean_rating || 0);
+
+    if (rating >= min) marker.addTo(map);
+    else map.removeLayer(marker);
+  });
+});
+</script>
+
+</body>
+</html>
